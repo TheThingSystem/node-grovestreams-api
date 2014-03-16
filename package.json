@@ -1,0 +1,25 @@
+{
+  "name"           : "grovestreams-api"
+, "version"        : "0.9.3"
+, "description"    : "A node.js module to interface with the Automatic cloud API"
+, "author"         : {
+    "name"         : "Marshall Rose"
+  , "email"        : "mrose17@gmail.com"
+  }
+, "repository"     : {
+    "type"         : "git"
+  , "url"          : "https://github.com/TheThingSystem/node-grovestreams-api.git"
+  } 
+, "bugs"           : {
+    "url"          : "https://github.com/TheThingSystem/node-grovestreams-api/issues"
+  }
+, "dependencies"   : {
+    "node-uuid"    : "1.4.0"
+  }
+, "keywords"       : [ "GroveStreams", "automobile"  ]
+, "main"           : "./grovestreams-api.js"
+, "engines"        : {
+    "node"         : ">=0.8"
+  }
+, "readmeFilename" : "README.md"
+}
