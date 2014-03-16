@@ -72,6 +72,12 @@ If the uid property isn/t present, it will be automatically-generated; regardles
       // record componentUID
     });
 
+### Create a new unit
+
+    // the symbol property is mandatory
+    client.addUnit(componentUID, streamID, properties, function(err, unitUID) {
+    });
+
 ### Create a new stream in a component
 
     // the name, valueType, and unit properties is mandatory

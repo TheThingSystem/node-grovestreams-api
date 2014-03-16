@@ -73,7 +73,10 @@ ClientAPI.prototype.login = function(callback) {
 
           units = response.unit;
           self.units = {};
-          for (i = 0; i < units.length; i++) self.units[units[i].id] = units[i];
+          for (i = 0; i < units.length; i++) {
+            units[i].id = units[i].id.toLowerCase();
+            self.units[units[i].id] = units[i];
+          }
 
           callback(null, self.users, self.components, self.units);
         });
@@ -100,7 +103,7 @@ ClientAPI.prototype.addComponent = function(componentID, properties, callback) {
   var self = this;
 
   defaults  = { id           : componentID
-              , uid          : exports.LookupUID(componentID)
+              , uid          : exports.LookupUID('component:' + componentID)
               , name         : undefined
               , creationDate : 0
               , stream       : []
@@ -154,7 +157,7 @@ ClientAPI.prototype.addStream = function(componentUID, streamID, properties, cal
   component = self.components[componentUID];
 
   defaults  = { id                  : streamID
-              , uid                 : exports.LookupUID(component.id + ':' + streamID)
+              , uid                 : exports.LookupUID('stream:' + component.id + ' ' + streamID)
               , name                : undefined
               , description         : ''
               , valueType           : undefined
@@ -194,8 +197,47 @@ console.log(util.inspect(component, { depth: null }));
   });
 };
 
+
+ClientAPI.prototype.addUnit = function(unitID, properties, callback) {
+  var defaults, property;
+
+  var self = this;
+
+  defaults  = { id             : unitID
+              , uid            : exports.LookupUID('unit:' + unitID)
+              , symbol         : undefined
+              , numberFormat   : '0,000.00'
+              , symbolLocation : 'AFTER'
+              , booleanStyle   : 'ON_OFF'
+              };
+  for (property in defaults) {
+    if ((!defaults.hasOwnProperty(property)) || (properties.hasOwnProperty(property))) continue;
+
+    if (defaults[property] === undefined) throw new Error(property + ' property is mandatory');
+    properties[property] = defaults[property];
+  }
+  if (!properties.name) {
+    properties.name = properties.id + ' (' + properties.numberFormat + properties.symbol + ')';
+  } else if (properties.name.indexOf(' (') === -1) {
+    properties.name += ' (' + properties.numberFormat + properties.symbol + ')';
+  }
+
+  return self.invoke('PUT', '/api/unit', { unit: properties }, function(err, code, response) {
+    var unit;
+
+    if (!!err) return callback(err);
+
+    unit = response.unit;
+    unit.id = unit.id.toLowerCase();
+    self.units[unit.id] = unit;
+
+    callback(null, unit.uid);
+  });
+};
+
+
 ClientAPI.prototype.addPoint = function(streamUID, data, sampleTime, callback) {
-});
+};
 
 
 ClientAPI.prototype.sync = function(self) {
