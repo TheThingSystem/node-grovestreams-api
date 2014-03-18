@@ -33,7 +33,7 @@ you'll be asked to create one.
         - component: GET, PUT, POST
         - component_folder: GET, PUT, POST
         - org_user: GET
-        - unit/: GET, PUT, POST
+        - unit: GET, PUT, POST
 
 - Retrieve the 'Organization UID' by clicking on the tools icon to the right of the padlock icon:
     - Select 'View Organization UID'
