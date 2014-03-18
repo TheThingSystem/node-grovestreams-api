@@ -42,44 +42,50 @@ ClientAPI.prototype.login = function(callback) {
   if (typeof callback !== 'function') throw new Error('callback is mandatory for login');
 
   return self.invoke('GET', '/api/org_user', null, function(err, code, response) {
-    var i;
+    var active, count, i;
 
     if (!!err) return callback(err);
+    if (!response) return callback(new Error('empty response'));
+
+    var done = function() {
+      if (active > 0) return;
+
+      self.sync(self);
+      callback(null, self.users, self.components, self.units);
+    };
 
     var f = function(start)  {
+      active++;
       self.invoke('GET', '/api/component?start=' + start + '&limit=10', null, function(err, code, response) {
-        var components, i;
+        var component, i;
 
+        active--;
         if (!!err) return callback(err);
+        if (!response) return callback(new Error('empty response'));
+
+        var getStreams = function(componentUID) {
+          return function(err, code, response) {
+            active--;
+            if (!!err) return callback(err);
+            if (!response) return callback(new Error('empty response'));
+
+            self.components[componentUID].stream = response.stream;
+            done();
+          };
+        };
 
         if (!self.components) self.components = [];
-        self.components = self.components.concat(response.component);
-        if (self.components.length !== response.totalCount) return f(start + 10);
+        for (i = 0; i < response.component.length; i++) {
+          component = response.component[i];
+          if (!component.ownerUser) component.ownerUser = self.ownerUser;
+          if (!component.location) component.location = self.options.location;
+          self.components[component.uid] = component;
 
-        components = self.components;
-        self.components = {};
-        for (i = 0; i < components.length; i++) {
-          if (!components[i].ownerUser) components[i].ownerUser = self.ownerUser;
-          if (!components[i].location) components[i].location = self.options.location;
-
-          self.components[components[i].uid] = components[i];
+          active++;
+          self.invoke('GET', '/api/component/' + component.uid + '/stream', null, getStreams(component.uid));
         }
-        self.sync(self);
-
-        self.invoke('GET', '/api/unit', null, function(err, code, response) {
-          var i, units;
-
-          if (!!err) return callback(err);
-
-          units = response.unit;
-          self.units = {};
-          for (i = 0; i < units.length; i++) {
-            units[i].id = units[i].id.toLowerCase();
-            self.units[units[i].id] = units[i];
-          }
-
-          callback(null, self.users, self.components, self.units);
-        });
+        count += response.component.length;
+        if (count !== response.totalCount) return f(start + 10);
       });
     };
 
@@ -92,6 +98,25 @@ ClientAPI.prototype.login = function(callback) {
     }
     if (!self.ownerUser) return callback(new Error('no owner users returned'));
 
+    active = 1;
+    self.invoke('GET', '/api/unit', null, function(err, code, response) {
+      var i, units;
+
+      active--;
+      if (!!err) return callback(err);
+      if (!response) return callback(new Error('empty response'));
+
+      units = response.unit;
+      self.units = {};
+      for (i = 0; i < units.length; i++) {
+        units[i].id = units[i].id.toLowerCase();
+        self.units[units[i].id] = units[i];
+      }
+
+      done();
+    });
+
+    count = 0;
     f(0);
   });
 };
@@ -120,34 +145,27 @@ ClientAPI.prototype.addComponent = function(componentID, properties, callback) {
   }
 
   return self.invoke('PUT', '/api/component', { component: properties }, function(err, code, response) {
+    var componentUID;
+
     if (!!err) return callback(err);
+    if (!response) return callback(new Error('empty response'));
 
     if (!response.component.ownerUser) response.component.ownerUser = properties.ownerUser;
     if (!response.component.location) response.component.location = properties.location;
 
-    self.components[response.component.uid] = response.component;
-    self.sync(self);
+    componentUID = response.component.uid;
+    self.components[componentUID] = response.component;
+    self.invoke('GET', '/api/component/' + componentUID + '/stream', null, function(err, code, response) {
+      if (!!err) return callback(err);
+      if (!response) return callback(new Error('empty response'));
 
-    callback(null, response.component.uid);
+      self.components[componentUID].stream = response.stream;
+      self.sync(self);
+
+      callback(null, componentUID);
+    });
   });
 };
-
-ClientAPI.prototype.getComponent = function(uid, callback) {
-  var self = this;
-
-  return self.invoke('GET', '/api/component/' + uid, null, function(err, code, response) {
-    if (!!err) return callback(err);
-
-    if (!response.component.ownerUser) response.component.ownerUser = self.ownerUser;
-    if (!response.component.location) response.component.location = self.options.location;
-
-    self.components[response.component.uid] = response.component;
-    self.sync(self);
-
-    callback(null, response.component);
-  });
-};
-
 
 ClientAPI.prototype.addStream = function(componentUID, streamID, properties, callback) {
   var component, defaults, property;
@@ -155,6 +173,7 @@ ClientAPI.prototype.addStream = function(componentUID, streamID, properties, cal
   var self = this;
 
   component = self.components[componentUID];
+  if (!component) throw new Error('no component with UID=' + componentUID);
 
   defaults  = { id                  : streamID
               , uid                 : exports.LookupUID('stream:' + component.id + ' ' + streamID)
@@ -162,12 +181,8 @@ ClientAPI.prototype.addStream = function(componentUID, streamID, properties, cal
               , description         : ''
               , valueType           : undefined
               , unit                : undefined
-              , streamType          : ''
-/*
-              , baseCycle           : {}
+              , streamType          : 'rdm_stream'
               , rollupMethod        : 'AVG'
-              , rollup_calendar     : { uid: '' }
- */
               , streamDerivationType: 'NONE'
               , delete_profile      : { uid: '' }
               , location            : component.location
@@ -182,18 +197,24 @@ ClientAPI.prototype.addStream = function(componentUID, streamID, properties, cal
   properties.valueType = properties.valueType.toUpperCase(); 
   if (!component.stream) component.stream = [];
   component.stream.push(properties);
-console.log(util.inspect(component, { depth: null }));
 
   return self.invoke('POST', '/api/component', { component: component }, function(err, code, response) {
     if (!!err) return callback(err);
+    if (!response) return callback(new Error('empty response'));
 
     if (!response.component.ownerUser) response.component.ownerUser = component.ownerUser;
     if (!response.component.location) response.component.location = component.location;
 
-    self.components[response.component.uid] = response.component;
-    self.sync(self);
+    self.components[componentUID] = response.component;
+    self.invoke('GET', '/api/component/' + componentUID + '/stream', null, function(err, code, response) {
+      if (!!err) return callback(err);
+      if (!response) return callback(new Error('empty response'));
 
-    callback(null, properties.uid);
+      self.components[componentUID].stream = response.stream;
+      self.sync(self);
+
+      callback(null, properties.uid);
+    });
   });
 };
 
@@ -226,6 +247,7 @@ ClientAPI.prototype.addUnit = function(unitID, properties, callback) {
     var unit;
 
     if (!!err) return callback(err);
+    if (!response) return callback(new Error('empty response'));
 
     unit = response.unit;
     unit.id = unit.id.toLowerCase();
@@ -236,7 +258,31 @@ ClientAPI.prototype.addUnit = function(unitID, properties, callback) {
 };
 
 
-ClientAPI.prototype.addPoint = function(streamUID, data, sampleTime, callback) {
+ClientAPI.prototype.addSamples = function(samples, callback) {
+  var self = this;
+
+  return self.invoke('PUT', '/api/feed', { feed: samples }, function(err, code, response) {/* jshint unused: false */
+    if (!!err) return callback(err);
+
+    callback(null);
+  });
+};
+
+ClientAPI.prototype.addSample = function(componentUID, streamUID, data, sampleTime, callback) {
+  var feed;
+
+  var self = this;
+
+  feed = { component: [ { componentUid : componentUID
+                        , stream       : [ { streamUid : streamUID
+                                           , data      : [ data ]
+                                           , time      : [ sampleTime ]
+                                           }
+                                         ]
+                        }
+                      ]
+         };
+  return self.addSamples(feed, callback);
 };
 
 
@@ -248,7 +294,7 @@ ClientAPI.prototype.sync = function(self) {
     if (!self.components.hasOwnProperty(uid)) continue;
     component = self.components[uid];
 
-    for (i = 0; i < component.stream; i++) self.streams[component.stream[i].uid] = component.stream[i];
+    for (i = 0; i < component.stream.length; i++) self.streams[component.stream[i].uid] = component.stream[i];
   }
 };
 
@@ -290,20 +336,21 @@ ClientAPI.prototype.invoke = function(method, path, json, callback) {
                      , PUT    : [ 200 ]
                      , POST   : [ 200, 201, 202 ]
                      , DELETE : [ 200 ]
-                     }[method];
-
-      var json = {};
-
-      try { json = JSON.parse(body); } catch(ex) {
-        self.logger.error(path, { event: 'json', diagnostic: ex.message, body: body });
-        return callback(ex, response.statusCode);
-      }
+                     }[method]
+        , json     = {}
+        ;
 
       if (expected.indexOf(response.statusCode) === -1) {
          self.logger.error(method + ' ' + path, { event: 'https', code: response.statusCode, body: body });
          return callback(new Error('HTTP response ' + response.statusCode), response.statusCode, json);
       }
 
+      if (body.length === 0) return callback(null, response.statusCode, null);
+
+      try { json = JSON.parse(body); } catch(ex) {
+        self.logger.error(path, { event: 'json', diagnostic: ex.message, body: body });
+        return callback(ex, response.statusCode);
+      }
       if (!json.success) return callback(new Error('unexpected response: ' + JSON.stringify(json.message)));
 
       callback(null, response.statusCode, json);
@@ -316,7 +363,6 @@ ClientAPI.prototype.invoke = function(method, path, json, callback) {
 
   return self;
 };
-
 
 
 exports.LookupUID = function (id) {
