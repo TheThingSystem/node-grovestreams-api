@@ -1,9 +1,9 @@
 // a node module to interface with the GroveStreams cloud API
 //   cf., https://grovestreams.com/developers/api.html
 
-var crypto      = require('crypto')
-  , events      = require('events')
+var events      = require('events')
   , https       = require('https')
+  , querystring = require('querystring')
   , url         = require('url')
   , util        = require('util')
   ;
@@ -130,7 +130,7 @@ ClientAPI.prototype.addComponent = function(componentID, properties, callback) {
   var self = this;
 
   defaults  = { id           : componentID
-              , uid          : exports.LookupUID('component:' + componentID)
+              , uid          : ''
               , name         : undefined
               , creationDate : 0
               , stream       : []
@@ -166,6 +166,12 @@ ClientAPI.prototype.addComponent = function(componentID, properties, callback) {
 
       callback(null, componentUID);
     });
+
+    self.invoke('PUT', '/api/component_folder/' + componentUID + '?'
+                  + querystring.stringify({ contentType     : 'component'
+                                          , parentFolderUid : ''
+                                          , text            : self.components[componentUID].name
+                                          }), null);
   });
 };
 
@@ -178,7 +184,6 @@ ClientAPI.prototype.addStream = function(componentUID, streamID, properties, cal
   if (!component) throw new Error('no component with UID=' + componentUID);
 
   defaults  = { id                  : streamID
-              , uid                 : exports.LookupUID('stream:' + component.id + ' ' + streamID)
               , name                : undefined
               , description         : ''
               , valueType           : undefined
@@ -196,7 +201,21 @@ ClientAPI.prototype.addStream = function(componentUID, streamID, properties, cal
     properties[property] = defaults[property];
   }
 // one of: boolean, short, integer, long, float, double, big decimal, string, date, latitude, longitude, elevation
-  properties.valueType = properties.valueType.toUpperCase(); 
+  properties.valueType = properties.valueType.toUpperCase();
+
+  if (!properties.uid) {
+    return self.invoke('GET', '/api/component/' + componentUID + '/stream/new?type=' + properties.streamType, null,
+                       function(err, code, response) {
+      var property;
+
+      if (!!err) return callback(err);
+      if (!response) return callback(new Error('empty response'));
+
+      for (property in properties) if (properties.hasOwnProperty(property)) response.stream[property] = properties[property];
+      self.addStream(componentUID, streamID, response.stream, callback);
+    });
+  }
+
   if (!component.stream) component.stream = [];
   component.stream.push(properties);
 
@@ -227,7 +246,7 @@ ClientAPI.prototype.addUnit = function(unitID, properties, callback) {
   var self = this;
 
   defaults  = { id             : unitID
-              , uid            : exports.LookupUID('unit:' + unitID)
+              , uid            : ''
               , symbol         : undefined
               , numberFormat   : '0,000.00'
               , symbolLocation : 'AFTER'
@@ -314,7 +333,7 @@ ClientAPI.prototype.invoke = function(method, path, json, callback) {
   }
   if (!callback) {
     callback = function(err, response) {
-      if (!!err) self.logger.error('invoke', { exception: err }); else self.logger.info(path, { response: response });
+      if (!!err) self.logger.error('invoke', { exception: err }); else self.logger.debug(path, { response: response });
     };
   }
 
@@ -366,15 +385,6 @@ ClientAPI.prototype.invoke = function(method, path, json, callback) {
   }).end(json);
 
   return self;
-};
-
-
-exports.LookupUID = function (id) {
-  var hash;
-
-  hash = crypto.createHash('whirlpool').update(id).digest('hex');
-  return (hash.substr(0, 8) + '-' + hash.substr(9, 4) + '-4' + hash.substr(14, 3) + '-a' + hash.substr(14, 3) + '-'
-            + hash.substr(18, 12));
 };
 
 

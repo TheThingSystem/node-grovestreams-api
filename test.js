@@ -10,7 +10,8 @@ var organizationUID = '...'
 
 
 client = new GroveStreams.ClientAPI({ clientID     : organizationUID
-                                    , clientSecret : secretAPIKey }).login(function(err, users, components, units) {
+                                    , clientSecret : secretAPIKey
+                                    }).login(function(err, users, components, units) {
   if (!!err) return console.log('login error: ' + err.message);
 
   console.log('users:');

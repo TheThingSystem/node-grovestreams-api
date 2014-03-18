@@ -31,6 +31,7 @@ you'll be asked to create one.
     - After closing the 'API Secret Key' window, click on 'Edit'and ensure that the API key has permission to:
         - component/*/feed: GET, PUT, POST
         - component: GET, PUT, POST
+        - component_folder: GET, PUT, POST
         - org_user: GET
         - unit/: GET, PUT, POST
 
@@ -46,7 +47,7 @@ API
 
 ### Login to cloud
 
-__NB:__ this call requires the GET permission for _org_user_, _component_, and _unit_.
+__NB:__ this call requires the GET permission for _org_user_, _component_, _component_folder_, and _unit_.
 
     var organizationUID = '...'
       , secretAPIKey    = '...'
