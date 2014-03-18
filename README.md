@@ -30,9 +30,9 @@ you'll be asked to create one.
     - Click on 'View Secret Key'
     - After closing the 'API Secret Key' window, click on 'Edit'and ensure that the API key has permission to:
         - component/*/feed: GET, PUT, POST
-        - component: GET, PUT, POST, DELETE
+        - component: GET, PUT, POST
         - org_user: GET
-        - unit/: GET, PUT, POST, DELETE
+        - unit/: GET, PUT, POST
 
 - Retrieve the 'Organization UID' by clicking on the tools icon to the right of the padlock icon:
     - Select 'View Organization UID'

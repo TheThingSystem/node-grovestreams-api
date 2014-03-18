@@ -62,6 +62,7 @@ ClientAPI.prototype.login = function(callback) {
         active--;
         if (!!err) return callback(err);
         if (!response) return callback(new Error('empty response'));
+        if (!response.component.length) return callback(new Error('component[] missing in response'));
 
         var getStreams = function(componentUID) {
           return function(err, code, response) {
@@ -74,11 +75,12 @@ ClientAPI.prototype.login = function(callback) {
           };
         };
 
-        if (!self.components) self.components = [];
+        if (!self.components) self.components = {};
         for (i = 0; i < response.component.length; i++) {
           component = response.component[i];
           if (!component.ownerUser) component.ownerUser = self.ownerUser;
           if (!component.location) component.location = self.options.location;
+          if (!component.stream) component.stream = [];
           self.components[component.uid] = component;
 
           active++;
@@ -292,7 +294,9 @@ ClientAPI.prototype.sync = function(self) {
   self.streams = {};
   for (uid in self.components) {
     if (!self.components.hasOwnProperty(uid)) continue;
+
     component = self.components[uid];
+    if (!component.stream) continue;
 
     for (i = 0; i < component.stream.length; i++) self.streams[component.stream[i].uid] = component.stream[i];
   }
