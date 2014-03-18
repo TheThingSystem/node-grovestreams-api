@@ -46,6 +46,7 @@ ClientAPI.prototype.login = function(callback) {
 
     if (!!err) return callback(err);
     if (!response) return callback(new Error('empty response'));
+    if (!response.org_user) return callback(new Error('org_user[] missing in response'));
 
     var done = function() {
       if (active > 0) return;
@@ -62,13 +63,14 @@ ClientAPI.prototype.login = function(callback) {
         active--;
         if (!!err) return callback(err);
         if (!response) return callback(new Error('empty response'));
-        if (!response.component.length) return callback(new Error('component[] missing in response'));
+        if (!response.component) return callback(new Error('component[] missing in response'));
 
         var getStreams = function(componentUID) {
           return function(err, code, response) {
             active--;
             if (!!err) return callback(err);
             if (!response) return callback(new Error('empty response'));
+            if (!response.stream) return callback(new Error('stream[] missing in response'));
 
             self.components[componentUID].stream = response.stream;
             done();
@@ -88,6 +90,8 @@ ClientAPI.prototype.login = function(callback) {
         }
         count += response.component.length;
         if (count !== response.totalCount) return f(start + 10);
+
+        done();
       });
     };
 
@@ -107,6 +111,7 @@ ClientAPI.prototype.login = function(callback) {
       active--;
       if (!!err) return callback(err);
       if (!response) return callback(new Error('empty response'));
+      if (!response.unit) return callback(new Error('unit[] missing in response'));
 
       units = response.unit;
       self.units = {};
@@ -151,6 +156,7 @@ ClientAPI.prototype.addComponent = function(componentID, properties, callback) {
 
     if (!!err) return callback(err);
     if (!response) return callback(new Error('empty response'));
+    if (!response.component) return callback(new Error('component missing in response'));
 
     if (!response.component.ownerUser) response.component.ownerUser = properties.ownerUser;
     if (!response.component.location) response.component.location = properties.location;
@@ -160,6 +166,7 @@ ClientAPI.prototype.addComponent = function(componentID, properties, callback) {
     self.invoke('GET', '/api/component/' + componentUID + '/stream', null, function(err, code, response) {
       if (!!err) return callback(err);
       if (!response) return callback(new Error('empty response'));
+      if (!response.stream) return callback(new Error('stream[] missing in response'));
 
       self.components[componentUID].stream = response.stream;
       self.sync(self);
@@ -210,6 +217,7 @@ ClientAPI.prototype.addStream = function(componentUID, streamID, properties, cal
 
       if (!!err) return callback(err);
       if (!response) return callback(new Error('empty response'));
+      if (!response.stream) return callback(new Error('stream missing in response'));
 
       for (property in properties) if (properties.hasOwnProperty(property)) response.stream[property] = properties[property];
       self.addStream(componentUID, streamID, response.stream, callback);
@@ -222,6 +230,7 @@ ClientAPI.prototype.addStream = function(componentUID, streamID, properties, cal
   return self.invoke('POST', '/api/component', { component: component }, function(err, code, response) {
     if (!!err) return callback(err);
     if (!response) return callback(new Error('empty response'));
+    if (!response.component) return callback(new Error('component missing in response'));
 
     if (!response.component.ownerUser) response.component.ownerUser = component.ownerUser;
     if (!response.component.location) response.component.location = component.location;
@@ -230,6 +239,7 @@ ClientAPI.prototype.addStream = function(componentUID, streamID, properties, cal
     self.invoke('GET', '/api/component/' + componentUID + '/stream', null, function(err, code, response) {
       if (!!err) return callback(err);
       if (!response) return callback(new Error('empty response'));
+      if (!response.stream) return callback(new Error('stream[] missing in response'));
 
       self.components[componentUID].stream = response.stream;
       self.sync(self);
@@ -269,6 +279,7 @@ ClientAPI.prototype.addUnit = function(unitID, properties, callback) {
 
     if (!!err) return callback(err);
     if (!response) return callback(new Error('empty response'));
+    if (!response.unit) return callback(new Error('unit missing in response'));
 
     unit = response.unit;
     unit.id = unit.id.toLowerCase();
