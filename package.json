@@ -1,6 +1,6 @@
 {
   "name"           : "grovestreams-api"
-, "version"        : "0.2.2"
+, "version"        : "0.2.3"
 , "description"    : "A node.js module to interface with the GroveStreams API"
 , "author"         : {
     "name"         : "Marshall Rose"
@@ -16,7 +16,7 @@
 , "dependencies"   : {
     "node-uuid"    : "1.4.0"
   }
-, "keywords"       : [ "GroveStreams", "automobile"  ]
+, "keywords"       : [ "GroveStreams", "internet of things", "IoT storage", "IoT analytics"  ]
 , "main"           : "./grovestreams-api.js"
 , "engines"        : {
     "node"         : ">=0.8"
