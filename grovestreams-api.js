@@ -171,14 +171,14 @@ ClientAPI.prototype.addComponent = function(componentID, properties, callback) {
       self.components[componentUID].stream = response.stream;
       self.sync(self);
 
+      self.invoke('PUT', '/api/component_folder/' + componentUID + '?'
+                    + querystring.stringify({ contentType     : 'component'
+                                            , parentFolderUid : ''
+                                            , text            : self.components[componentUID].name
+                                            }), null);
+
       callback(null, componentUID);
     });
-
-    self.invoke('PUT', '/api/component_folder/' + componentUID + '?'
-                  + querystring.stringify({ contentType     : 'component'
-                                          , parentFolderUid : ''
-                                          , text            : self.components[componentUID].name
-                                          }), null);
   });
 };
 

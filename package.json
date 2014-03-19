@@ -1,6 +1,6 @@
 {
   "name"           : "grovestreams-api"
-, "version"        : "0.2.1"
+, "version"        : "0.2.2"
 , "description"    : "A node.js module to interface with the GroveStreams API"
 , "author"         : {
     "name"         : "Marshall Rose"
